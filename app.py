@@ -167,11 +167,25 @@ def estadisticas() -> Estadisticas:
     )
 
 
-@app.get("/api/suenos", response_model=RespuestaSuenos, tags=["folklore"])
+@app.get("/api/suenos", response_model=RespuestaSuenos, tags=["folklore"],
+         summary="El Oráculo de los Sueños Tucumano (sin tilde)")
 def suenos(texto: str = Query(..., min_length=1, max_length=600,
                               description="Relato del sueño del usuario.")) -> RespuestaSuenos:
     """El Oráculo de los Sueños Tucumano: devuelve hasta 3 números sugeridos
     más su significado y la fuente (diccionario o hash determinista)."""
+    if texto is None or not texto.strip():
+        raise HTTPException(status_code=400, detail="El parámetro 'texto' es obligatorio.")
+    data = construir_respuesta(texto)
+    return RespuestaSuenos(**data)
+
+
+# Alias con la "ñ" exacta que usa el frontend v0 (acentos en URL son válidos).
+@app.get("/api/sueños", response_model=RespuestaSuenos, tags=["folklore"],
+         summary="El Oráculo de los Sueños Tucumano (alias con ñ — v0)")
+def suenos_con_enye(texto: str = Query(..., min_length=1, max_length=600,
+                                       description="Relato del sueño del usuario.")) -> RespuestaSuenos:
+    """Alias con 'ñ' que matchea 1:1 la URL que el componente v0 está pegando.
+    Devuelve exactamente la misma respuesta que `/api/suenos`."""
     if texto is None or not texto.strip():
         raise HTTPException(status_code=400, detail="El parámetro 'texto' es obligatorio.")
     data = construir_respuesta(texto)
