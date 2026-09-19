@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+requests==2.32.3
+beautifulsoup4==4.12.3
+pandas==2.2.3
+numpy==2.1.3
+pydantic==2.10.3
+python-dateutil==2.9.0.post0
+
+# Opcionales (NO se instalan por defecto — descomentar si el scraper HTTP
+# sigue cayendo y querés renderizar la SPA con un navegador headless):
+# playwright==1.49.1
+# Ejecutar después: playwright install chromium
