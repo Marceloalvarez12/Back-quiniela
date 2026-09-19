@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from data_loader import cargar_historial
+from data_loader import TURNOS, cargar_historial
 
 LOG = logging.getLogger("quiniela.prediccion")
 
@@ -405,3 +405,161 @@ def construir_patrones() -> Dict:
             str(k): int(v) for k, v in df["turno"].value_counts().items()
         },
     }
+
+
+# ---------- Backtest rolling (servido por la API) ----------
+
+_BACKTEST_CACHE = {"value": None}
+
+
+def _computar_backtest(dias_atras=30, ventana_minima_train=100, top_k_eval=(1, 3, 5, 10)):
+    """Backtest HONESTO: para cada fecha objetivo se entrena solo con datos
+    ANTERIORES a esa fecha (sin leak). Costo: ~30x mas calculo, pero es la
+    unica manera de medir el poder predictivo real."""
+    from datetime import date, timedelta
+
+    df, fuente = cargar_historial()
+    df["fecha_dt"] = pd.to_datetime(df["fecha"], errors="coerce")
+    df = df.dropna(subset=["fecha_dt"]).sort_values("fecha_dt").reset_index(drop=True)
+    df = df.drop_duplicates(subset=["fecha", "turno"], keep="last")
+
+    ultima = df["fecha_dt"].max().date()
+    primera = df["fecha_dt"].min().date()
+    fecha_min = max(primera, ultima - timedelta(days=dias_atras))
+    fechas = sorted([d.date() for d in df["fecha_dt"].unique()
+                     if fecha_min <= d.date() <= ultima])
+    if not fechas:
+        return {"error": "no hay fechas para backtest"}
+
+    aciertos = {f"top{k}": 0 for k in top_k_eval}
+    por_turno = {t: {f"top{k}": 0 for k in top_k_eval} for t in TURNOS}
+    conteo_t = {t: 0 for t in TURNOS}
+    ranks_globales = []
+    total = 0
+    detalle = []
+
+    for fecha in fechas:
+        # ENTRENAMIENTO: solo sorteos ANTERIORES a `fecha` (sin leak del mismo dia)
+        df_train = df[df["fecha_dt"] < pd.Timestamp(fecha)].copy()
+        if len(df_train) < ventana_minima_train:
+            continue
+        # PREDICCION: para cada turno, score sobre df_train
+        s1_raw = _calor_reciente(df_train, ventana=30)
+        s2_raw = _calor_historico(df_train)
+        s3_raw = _racha_ausencia_actual(df_train)
+        s5_raw = _coocurrencia_con_calientes(df_train, ventana=60)
+        s6_raw = _dias_desde_ultima(df_train, fecha)
+        s1 = _minmax(s1_raw); s2 = _minmax(s2_raw)
+        s3 = 1 - _minmax(s3_raw); s5 = _minmax(s5_raw); s6 = 1 - _minmax(s6_raw)
+        score_base_full = (
+            DEFAULT_PESOS["s1_calor_reciente"]   * s1
+            + DEFAULT_PESOS["s2_calor_historico"]  * s2
+            + DEFAULT_PESOS["s3_ausencia"]         * s3
+            + DEFAULT_PESOS["s5_coocurrencia"]     * s5
+            + DEFAULT_PESOS["s6_recencia_inversa"] * s6
+        )
+        s4_global = {t: _minmax(_afinidad_por_turno(df_train, t)) for t in TURNOS}
+
+        preds_dia = {}
+        for t in TURNOS:
+            score_t = score_base_full + DEFAULT_PESOS["s4_afinidad_turno"] * s4_global[t]
+            orden = np.argsort(-score_t)
+            preds_dia[t] = [f"{int(i):02d}" for i in orden[:10]]
+
+        # EVALUACION: comparar contra el resultado real de ESE dia
+        df_dia = df[df["fecha_dt"] == pd.Timestamp(fecha)].copy()
+        df_dia = df_dia[df_dia["turno"].isin(TURNOS)]
+        if len(df_dia) == 0:
+            continue
+        dia_res = {"fecha": fecha.isoformat(), "resultados": {}}
+        for _, fila in df_dia.iterrows():
+            turno = fila["turno"]
+            real = int(fila["numero"])
+            term = f"{real % 100:02d}"
+            top10 = preds_dia.get(turno, [])
+            rank = next((i + 1 for i, n in enumerate(top10) if n == term), None)
+            if rank is None:
+                rank = 11
+            ranks_globales.append(rank)
+            conteo_t[turno] += 1
+            total += 1
+            for k in top_k_eval:
+                if term in top10[:k]:
+                    aciertos[f"top{k}"] += 1
+                    por_turno[turno][f"top{k}"] += 1
+            dia_res["resultados"][turno] = {
+                "real": term, "rank": rank, "top10_predicho": top10
+            }
+        detalle.append(dia_res)
+
+    precision_global = {
+        f"top{k}": {
+            "aciertos": int(aciertos[f"top{k}"]),
+            "total":    int(total),
+            "ratio":    round(aciertos[f"top{k}"] / max(1, total), 4),
+            "azar":     round(k / 100.0, 4),
+            "diff_pct": round(100 * (aciertos[f"top{k}"] / max(1, total) - k / 100.0), 2),
+        }
+        for k in top_k_eval
+    }
+    por_turno_res = {}
+    for t in TURNOS:
+        n = conteo_t[t]
+        por_turno_res[t] = {
+            f"top{k}": {
+                "aciertos": int(por_turno[t][f"top{k}"]),
+                "total":    int(n),
+                "ratio":    round(por_turno[t][f"top{k}"] / max(1, n), 4),
+                "azar":     round(k / 100.0, 4),
+                "diff_pct": round(100 * (por_turno[t][f"top{k}"] / max(1, n) - k / 100.0), 2),
+            }
+            for k in top_k_eval
+        }
+
+    diffs = [precision_global[f"top{k}"]["diff_pct"] for k in top_k_eval]
+    promedio_diff = round(float(np.mean(np.abs(diffs))), 2) if diffs else None
+    if promedio_diff is None:
+        veredicto = "sin_datos"
+    elif promedio_diff <= 2:
+        veredicto = "dentro_del_azar"
+    elif promedio_diff <= 6:
+        veredicto = "margen_discreto"
+    else:
+        signo = "mejor" if sum(diffs) > 0 else "peor"
+        veredicto = f"senal_{signo}_vs_azar"
+
+    return {
+        "total_evaluados": int(total),
+        "dias_evaluados": len(detalle),
+        "rango_fechas": {
+            "desde": fechas[0].isoformat() if fechas else None,
+            "hasta": fechas[-1].isoformat() if fechas else None,
+        },
+        "precision_global":  precision_global,
+        "por_turno":          por_turno_res,
+        "rank_promedio_terminacion_real": round(float(np.mean(ranks_globales)), 2) if ranks_globales else None,
+        "fuera_del_top10_pct": round(100 * sum(1 for r in ranks_globales if r > 10) /
+                                     max(1, len(ranks_globales)), 2) if ranks_globales else None,
+        "promedio_abs_diffs_vs_azar": promedio_diff,
+        "veredicto":          veredicto,
+        "fuente_datos":        fuente,
+    }
+
+
+
+
+def construir_backtest(use_cache=True, top_k_eval=(1, 3, 5, 10)):
+    """Cacheado en modulo."""
+    cache = _BACKTEST_CACHE
+    if use_cache and cache["value"] is not None:
+        return cache["value"]
+    resultado = _computar_backtest(dias_atras=30,
+                                    ventana_minima_train=100,
+                                    top_k_eval=top_k_eval)
+    cache["value"] = resultado
+    return resultado
+
+
+def invalidar_cache_backtest():
+    """Llamala cuando el scraper agrega sorteos nuevos y queres recalcular."""
+    _BACKTEST_CACHE["value"] = None

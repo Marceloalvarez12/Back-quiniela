@@ -25,7 +25,13 @@ from modelos import (
     SorteosDelDia,
     TurnosDelDia,
 )
-from prediccion import construir_combinaciones, construir_patrones, construir_prediccion
+from prediccion import (
+    construir_backtest,
+    construir_combinaciones,
+    construir_patrones,
+    construir_prediccion,
+    invalidar_cache_backtest,
+)
 from scraper import obtener_turnos_del_dia
 from suenos import construir_respuesta
 
@@ -236,6 +242,17 @@ def combinaciones(
          summary="Patrones estructurales: par/impar, decenas, sesgo")
 def patrones():
     return construir_patrones()
+
+
+@app.get("/api/backtest", tags=["analisis"],
+         summary="Backtest rolling honesto vs azar puro (ultimos 30 dias)")
+def backtest(refresh: bool = Query(False, description="Forzar recálculo ignorando cache.")):
+    """Mide precision top-1/3/5/10 vs azar puro sobre los ultimos 30 dias
+    del CSV, SIN leak (training siempre anterior al dia evaluado).
+    Cache en memoria por 1 sesion; `?refresh=true` para recalcular."""
+    if refresh:
+        invalidar_cache_backtest()
+    return construir_backtest()
 
 
 # ---------- Arranque directo ----------
