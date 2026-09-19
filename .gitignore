@@ -26,3 +26,5 @@ Thumbs.db
 
 # Datos locales grandes (opcional, si no querés commitear el CSV inicial)
 # data/historico_base.csv
+dom_renderizado.html
+backtest_ayer.json
