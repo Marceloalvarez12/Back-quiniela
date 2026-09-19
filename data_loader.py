@@ -1,19 +1,25 @@
+# -*- coding: utf-8 -*-
 """
 Carga y mantenimiento del historial de sorteos.
 
 Prioridad de carga:
-  1) data/historico_base.csv (si existe) — registros reales o curados.
-  2) Generación determinística in-memory — 600 sorteos pseudo-aleatorios
+  1) data/historico_base.csv (si existe) - registros reales o curados.
+  2) Generacion deterministica in-memory - 750 sorteos pseudo-aleatorios
      sembrados con la fecha de build, repetibles hasta que cambies la semilla.
 
 Formato CSV (cabecera fija):
   fecha,turno,numero
-  2025-01-01,Matutina,4523
-  2025-01-01,Electrica,0987
+  2026-04-23,Matutino,4523
+  2026-04-23,Siesta,0987
   ...
 
 'numero' es el premio "A la cabeza" completo (hasta 4 cifras).
 Para estadísticas se usa la terminación de 2 cifras (numero % 100).
+
+Desde sep/2026 la quiniela tucumana tiene **5 jugadas oficiales** según la
+Caja Popular (https://www.cajapopular.gov.ar/index.php/1249-2/):
+  Matutino, Siesta, Vespertino, Nocturno, Extra.
+|`TURNOS` y `HORARIOS_TURNO` abajo son la fuente única de verdad.
 """
 from __future__ import annotations
 
@@ -31,11 +37,23 @@ LOG = logging.getLogger("quiniela.data")
 DATA_DIR = Path(__file__).parent / "data"
 CSV_PATH = DATA_DIR / "historico_base.csv"
 
-TURNOS = ("Matutina", "Electrica", "Vespertina", "Nocturna")
+# Turnos oficiales de la Quiniela de Tucumán (5 jugadas según la Caja Popular).
+#   Matutino    → 11:30 hs   Siesta      → 17:30 hs
+#   Vespertino  → 14:30 hs   Nocturno    → 22:00 hs
+#   Extra       → sin horario oficial publicado en el sitio
+TURNOS = ("Matutino", "Vespertino", "Siesta", "Nocturno", "Extra")
+
+HORARIOS_TURNO = {                  # hora local AR (None = no publicada)
+    "Matutino":   (11, 30),
+    "Vespertino": (14, 30),
+    "Siesta":     (17, 30),
+    "Nocturno":   (22, 0),
+    "Extra":      (None, None),
+}
 
 
 def _generar_sorteos_simulados(n_dias: int = 150, semilla: int = 20250919) -> pd.DataFrame:
-    """Genera un historial sintético pero coherente: 4 turnos por día × n_dias."""
+    """Genera un historial sintético pero coherente: 5 turnos por dia * n_dias."""
     rng = np.random.default_rng(semilla)
     hoy = date.today()
     filas: List[dict] = []
@@ -66,7 +84,7 @@ def cargar_historial() -> tuple[pd.DataFrame, str]:
         except Exception as e:
             LOG.exception("No se pudo leer %s: %s. Genero simulados.", CSV_PATH, e)
 
-    # Fallback: simulado in-memory. Semilla fija → números repetibles.
+    # Fallback: simulado in-memory. Semilla fija -> numeros repetibles.
     LOG.info("Generando historial simulado (fallback determinístico).")
     sim = _generar_sorteos_simulados()
     sim["terminacion"] = sim["numero"].astype("int64") % 100

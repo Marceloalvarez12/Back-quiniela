@@ -152,23 +152,26 @@ def _parsear_html(html: str) -> Dict[str, str]:
 
 
 _ALIASES = {
-    "Matutina": ["Matutina", "MATUTINA"],
-    "Electrica": ["Electrica", "Eléctrica", "Siesta", "ELÉCTRICA", "ELECTRICA"],
-    "Vespertina": ["Vespertina", "VESPERTINA"],
-    "Nocturna": ["Nocturna", "NOCTURNA"],
+    "Matutino":   ["Matutino", "MATUTINO", "Matutina"],
+    "Vespertino": ["Vespertino", "VESPERTINO", "Vespertina"],
+    "Siesta":     ["Siesta", "SIESTA", "Electrica", "Eléctrica", "ELÉCTRICA", "ELECTRICA"],
+    "Nocturno":   ["Nocturno", "NOCTURNO", "Nocturna"],
+    "Extra":      ["Extra", "EXTRA", "Preliminar", "Plus"],
 }
 
 
 def _canonizar_turno(s: str) -> str | None:
     s_norm = s.lower().replace("é", "e").strip()
     if "matutin" in s_norm:
-        return "Matutina"
-    if "electr" in s_norm or "siesta" in s_norm:
-        return "Electrica"
+        return "Matutino"
     if "vespertin" in s_norm:
-        return "Vespertina"
+        return "Vespertino"
+    if "siesta" in s_norm or "electr" in s_norm:
+        return "Siesta"
     if "nocturn" in s_norm:
-        return "Nocturna"
+        return "Nocturno"
+    if "extra" in s_norm or "prelimin" in s_norm or "plus" in s_norm:
+        return "Extra"
     return None
 
 
