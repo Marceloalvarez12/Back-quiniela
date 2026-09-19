@@ -19,9 +19,9 @@ class TurnosDelDia(BaseModel):
     Si un turno aún no se sorteó o la API no tiene datos, el valor es '----'."""
     Matutino:   str = Field(..., description="Primer premio 'A la cabeza' del Matutino (11:30 hs). '----' si aún no salió.")
     Vespertino: str = Field(..., description="Primer premio 'A la cabeza' del Vespertino (14:30 hs). '----' si aún no salió.")
-    Siesta:     str = Field(..., description="Primer premio 'A la cabeza' de la Siesta (17:30 hs). '----' si aún no salió.")
+    Siesta:     str = Field(..., description="Primer premio 'A la cabeza' de la Siesta / 'De la Siesta' (17:30 hs). '----' si aún no salió.")
+    Tarde:      str = Field(..., description="Primer premio 'A la cabeza' de la Tarde / 'De la Tarde' (hora no publicada). '----' si aún no salió.")
     Nocturno:   str = Field(..., description="Primer premio 'A la cabeza' del Nocturno (22:00 hs). '----' si aún no salió.")
-    Extra:      str = Field(..., description="Quinta jugada (sin horario oficial publicado). '----' si aún no salió.")
 
 
 class SorteosDelDia(BaseModel):

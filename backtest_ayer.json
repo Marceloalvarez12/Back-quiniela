@@ -1,0 +1,159 @@
+{
+  "fecha": "2026-09-18",
+  "fuente_datos": "historico_csv",
+  "total_turnos_evaluados": 5,
+  "precision": {
+    "top1": {
+      "aciertos": 1,
+      "total": 5,
+      "ratio": 0.2
+    },
+    "top3": {
+      "aciertos": 1,
+      "total": 5,
+      "ratio": 0.2
+    },
+    "top5": {
+      "aciertos": 2,
+      "total": 5,
+      "ratio": 0.4
+    },
+    "top10": {
+      "aciertos": 3,
+      "total": 5,
+      "ratio": 0.6
+    }
+  },
+  "detalles": [
+    {
+      "turno": "Matutino",
+      "numero_real": "4252",
+      "terminacion_real": "52",
+      "rank": null,
+      "top10_predicho": [
+        "87",
+        "72",
+        "95",
+        "76",
+        "44",
+        "90",
+        "84",
+        "81",
+        "57",
+        "86"
+      ],
+      "score_top1": 100.0,
+      "score_real": null,
+      "acierto": {
+        "top1": false,
+        "top3": false,
+        "top5": false,
+        "top10": false
+      }
+    },
+    {
+      "turno": "Vespertino",
+      "numero_real": "8900",
+      "terminacion_real": "00",
+      "rank": 1,
+      "top10_predicho": [
+        "00",
+        "87",
+        "54",
+        "72",
+        "45",
+        "57",
+        "44",
+        "81",
+        "79",
+        "04"
+      ],
+      "score_top1": 100.0,
+      "score_real": 100.0,
+      "acierto": {
+        "top1": true,
+        "top3": true,
+        "top5": true,
+        "top10": true
+      }
+    },
+    {
+      "turno": "Siesta",
+      "numero_real": "5476",
+      "terminacion_real": "76",
+      "rank": 8,
+      "top10_predicho": [
+        "87",
+        "95",
+        "81",
+        "72",
+        "04",
+        "00",
+        "13",
+        "76",
+        "90",
+        "01"
+      ],
+      "score_top1": 100.0,
+      "score_real": 75.53,
+      "acierto": {
+        "top1": false,
+        "top3": false,
+        "top5": false,
+        "top10": true
+      }
+    },
+    {
+      "turno": "Nocturno",
+      "numero_real": "7041",
+      "terminacion_real": "41",
+      "rank": 5,
+      "top10_predicho": [
+        "72",
+        "87",
+        "76",
+        "13",
+        "41",
+        "57",
+        "81",
+        "12",
+        "47",
+        "54"
+      ],
+      "score_top1": 100.0,
+      "score_real": 85.35,
+      "acierto": {
+        "top1": false,
+        "top3": false,
+        "top5": true,
+        "top10": true
+      }
+    },
+    {
+      "turno": "Extra",
+      "numero_real": "6411",
+      "terminacion_real": "11",
+      "rank": null,
+      "top10_predicho": [
+        "13",
+        "87",
+        "72",
+        "12",
+        "41",
+        "44",
+        "86",
+        "54",
+        "81",
+        "04"
+      ],
+      "score_top1": 100.0,
+      "score_real": null,
+      "acierto": {
+        "top1": false,
+        "top3": false,
+        "top5": false,
+        "top10": false
+      }
+    }
+  ]
+}

@@ -114,8 +114,8 @@ def sorteos_del_dia() -> SorteosDelDia:
             Matutino=turnos.get("Matutino", "----"),
             Vespertino=turnos.get("Vespertino", "----"),
             Siesta=turnos.get("Siesta", "----"),
+            Tarde=turnos.get("Tarde", "----"),
             Nocturno=turnos.get("Nocturno", "----"),
-            Extra=turnos.get("Extra", "----"),
         ),
         fuente=data["fuente"],
         advertencia=data.get("advertencia"),
@@ -141,7 +141,7 @@ def estadisticas() -> Estadisticas:
         LOG.exception("Fallo estadístico controlado: %s", e)
         # Aún si Pandas falla, devolvemos esqueletos válidos.
         tur = TurnosDelDia(
-            Matutino="----", Vespertino="----", Siesta="----", Nocturno="----", Extra="----"
+            Matutino="----", Vespertino="----", Siesta="----", Tarde="----", Nocturno="----"
         )
         return Estadisticas(
             calientes=[

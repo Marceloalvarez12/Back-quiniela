@@ -38,17 +38,19 @@ DATA_DIR = Path(__file__).parent / "data"
 CSV_PATH = DATA_DIR / "historico_base.csv"
 
 # Turnos oficiales de la Quiniela de Tucumán (5 jugadas según la Caja Popular).
-#   Matutino    → 11:30 hs   Siesta      → 17:30 hs
-#   Vespertino  → 14:30 hs   Nocturno    → 22:00 hs
-#   Extra       → sin horario oficial publicado en el sitio
-TURNOS = ("Matutino", "Vespertino", "Siesta", "Nocturno", "Extra")
+#   Matutino     -> 11:30 hs   Nocturno -> 22:00 hs
+#   Vespertino   -> 14:30 hs   Tarde    -> hora no publicada en el sitio
+#   Siesta       -> 17:30 hs
+# (Nombres completos en el sitio: "De la Siesta" y "De la Tarde"; aqui usamos
+#  claves cortas ASCII para JSON: Siesta / Tarde.)
+TURNOS = ("Matutino", "Vespertino", "Siesta", "Tarde", "Nocturno")
 
 HORARIOS_TURNO = {                  # hora local AR (None = no publicada)
     "Matutino":   (11, 30),
     "Vespertino": (14, 30),
     "Siesta":     (17, 30),
+    "Tarde":      (None, None),
     "Nocturno":   (22, 0),
-    "Extra":      (None, None),
 }
 
 
