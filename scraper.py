@@ -32,7 +32,7 @@ from typing import Dict, Optional
 
 import requests
 
-from data_loader import HORARIOS_TURNO, TURNOS, cargar_historial, guardar_sorteos_del_dia
+from data_loader import HORARIOS_TURNO, TURNOS, CSV_PATH, cargar_historial, guardar_sorteos_del_dia
 
 LOG = logging.getLogger("quiniela.scraper")
 
@@ -186,6 +186,73 @@ def obtener_turnos_del_dia(hoy: Optional[date] = None) -> Dict:
             "deterministicos del dia (se repiten al recargar)."
         ),
     }
+
+
+# ---------- Prediccion sin leak (para comparar contra el dia de la fecha) ----------
+
+def construir_prediccion_sin_leak(hoy: Optional[date] = None) -> Dict:
+    """Prediccion calculada EXCLUYENDO los sorteos del dia objetivo.
+    Importante: /api/sorteos ya persistio hoy al CSV, asi que una
+    prediccion sobre el CSV completo incluiria el resultado del dia en
+    su entrenamiento -> leak y score 100% falso.
+
+    Esta funcion corta el CSV en `fecha < hoy` y recalcula el score sobre
+    el subdataset. Devuelve la misma estructura que construir_prediccion + un
+    campo `prediccions_desde` y una `nota` explicativa.
+    """
+    import pandas as pd
+    from datetime import date as _date, timedelta
+
+    hoy = hoy or _date.today()
+    csv_path = CSV_PATH
+    if not csv_path.exists():
+        return {
+            "error": "csv no existe",
+            "prediccions_desde": None,
+        }
+
+    df_full = pd.read_csv(csv_path, dtype={"fecha": str, "turno": str, "numero": "Int64"})
+    df_full["terminacion"] = df_full["numero"].astype("Int64") % 100
+    cutoff = hoy.isoformat()
+    df_rec = df_full[df_full["fecha"].astype(str) < cutoff].copy()
+    if len(df_rec) < 50:
+        return {
+            "error": "datos insuficientes sin incluir hoy (<50 filas)",
+            "filas_usadas": int(len(df_rec)),
+            "cutoff": cutoff,
+        }
+
+    # Monkey-patch del loader en data_loader
+    import data_loader as _dl
+    original_loader = _dl.cargar_historial
+
+    def cargar_recortado():
+        return df_rec, "historico_csv_sin_leak_hoy"
+
+    _dl.cargar_historial = cargar_recortado
+    try:
+        import prediccion as _p
+        resultado = _p.construir_prediccion(
+            turno=None, pesos=None, top_k=10, ventana_reciente=30
+        )
+    finally:
+        _dl.cargar_historial = original_loader
+
+    # Anotaciones honestas
+    resultado["prediccions_desde"] = (
+        df_rec["fecha"].astype(str).max() if len(df_rec) > 0
+        else (hoy - timedelta(days=1)).isoformat()
+    )
+    resultado["filas_usadas"] = int(len(df_rec))
+    resultado["total_sorteos_analizados"] = int(len(df_rec))
+    resultado["nota"] = (
+        "Prediccion sin leak: entrenada con datos hasta "
+        f"{resultado['prediccions_desde']} (el resultado del "
+        "sorteo del dia objetivo NO esta incluido). "
+        "Esta es la version correcta para comparar contra el resultado del "
+        "del dia y medir valor predictivo real."
+    )
+    return resultado
 
 
 # ---------- Compat: parseo HTML (por si la API se esconde otra vez) ----------

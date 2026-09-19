@@ -32,6 +32,7 @@ from prediccion import (
     construir_prediccion,
     invalidar_cache_backtest,
 )
+from scraper import construir_prediccion_sin_leak as _cpl  # noqa: E402
 from scraper import obtener_turnos_del_dia
 from suenos import construir_respuesta
 
@@ -212,12 +213,29 @@ def prediccion(
     k: int = Query(10, ge=1, le=50, description="Cantidad del top."),
     ventana: int = Query(30, ge=5, le=200, description="Sorteos para 'calor_reciente'."),
     pesos: str | None = Query(None,
-                              description='JSON override de pesos, ej {"s1_calor_reciente":3.0}, null usa DEFAULT'),
+                              description='JSON override de pesos, ej {"s1_calor_recientes":3.0}, null usa DEFAULT'),
+    sin_leak: bool = Query(False,
+                          description="Si True, calcula el score excluyendo los sorteos del dia de hoy. "
+                                      "Comparar contra el resultado del dia SIN este flag es auto-leak y muestra score 100 falso."),
 ):
     """Heuristica de ranking basada en 6 senales historicas.
     NO ASEGURA PROBABILIDAD: cada terminacion 00..99 sigue siendo 1/100 real.
-    Sirve para jugar responsablemente con criterio."""
+    Sirve para jugar responsablemente con criterio.
+
+    Pasale `?sin_leak=true` para una prediccion HONESTA (sin el resultado
+    del dia en el entrenamiento). Sin ese parametro, /api/sorteos ya
+    persistio al CSV y el score se calcula con TODO el dataset -> leak."""
     from prediccion import _parse_pesos
+    if sin_leak:
+        # Versión sin la línea de hoy (corta por fecha).
+        r = _cpl()
+        if turno is not None:
+            # refiltrar por turno manualmente
+            top = []
+            for item in r["top"]:
+                top.append(item)
+            r["top"] = top
+        return r
     return construir_prediccion(
         turno=turno,
         pesos=_parse_pesos(pesos),
